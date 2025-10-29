@@ -13,8 +13,15 @@ const server = http.createServer(app)
 
 // Initialize socket.io server
 export const io = new Server(server, {
-    cors: {origin: "*"}
-})
+  cors: {
+    origin: [
+      "https://quickchatfrontend.onrender.com" // production frontend
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
 
 // Store online users
 export const userSocketMap = {}; // { userId: socketId }
