@@ -10,16 +10,30 @@ import { Server } from "socket.io";
 const app = express();
 const server = http.createServer(app);
 
-// CORS middleware (must be BEFORE routes)
-app.use(cors({
-  origin: [
-    "http://localhost:3000",               // local dev
-    "https://quickchatfrontend.onrender.com" // production
-  ],
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://quickchatfrontend.onrender.com"
+];
+
+// CORS middleware
+const corsOptions = {
+  origin: (origin, callback) => {
+    // allow requests with no origin like Postman
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
-}));
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests for all routes
+app.options("*", cors(corsOptions));
 
 app.use(express.json({ limit: "4mb" }));
 
@@ -31,10 +45,7 @@ app.use("/api/messages", messageRouter);
 // Socket.IO
 export const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:3000",
-      "https://quickchatfrontend.onrender.com"
-    ],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -43,7 +54,7 @@ export const io = new Server(server, {
 export const userSocketMap = {};
 
 io.on("connection", (socket) => {
-  const userId = socket.handshake.auth?.userId; // <- frontend sends userId via auth
+  const userId = socket.handshake.auth?.userId;
   console.log("User Connected", userId);
 
   if (userId) userSocketMap[userId] = socket.id;
