@@ -7,52 +7,55 @@ import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
 
-// Create Express app and HTTP server
 const app = express();
-const server = http.createServer(app)
+const server = http.createServer(app);
 
-// Initialize socket.io server
+// CORS middleware (must be BEFORE routes)
+app.use(cors({
+  origin: [
+    "http://localhost:3000",               // local dev
+    "https://quickchatfrontend.onrender.com" // production
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+app.use(express.json({ limit: "4mb" }));
+
+// Routes setup
+app.use("/api/status", (req, res) => res.send("Server is live"));
+app.use("/api/auth", userRouter);
+app.use("/api/messages", messageRouter);
+
+// Socket.IO
 export const io = new Server(server, {
   cors: {
     origin: [
-      "https://quickchatfrontend.onrender.com" // production frontend
+      "http://localhost:3000",
+      "https://quickchatfrontend.onrender.com"
     ],
     methods: ["GET", "POST"],
     credentials: true
   }
 });
 
+export const userSocketMap = {};
 
-// Store online users
-export const userSocketMap = {}; // { userId: socketId }
+io.on("connection", (socket) => {
+  const userId = socket.handshake.auth?.userId; // <- frontend sends userId via auth
+  console.log("User Connected", userId);
 
-// Socket.io connection handler
-io.on("connection", (socket)=>{
-    const userId = socket.handshake.query.userId;
-    console.log("User Connected", userId);
+  if (userId) userSocketMap[userId] = socket.id;
 
-    if(userId) userSocketMap[userId] = socket.id;
-    
-    // Emit online users to all connected clients
+  io.emit("getOnlineUsers", Object.keys(userSocketMap));
+
+  socket.on("disconnect", () => {
+    console.log("User Disconnected", userId);
+    delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
-
-    socket.on("disconnect", ()=>{
-        console.log("User Disconnected", userId);
-        delete userSocketMap[userId];
-        io.emit("getOnlineUsers", Object.keys(userSocketMap))
-    })
-})
-
-// Middleware setup
-app.use(express.json({limit: "4mb"}));
-app.use(cors());
-
-
-// Routes setup
-app.use("/api/status", (req, res)=> res.send("Server is live"));
-app.use("/api/auth", userRouter);
-app.use("/api/messages", messageRouter)
-
+  });
+});
 
 // Connect to MongoDB
 await connectDB();
@@ -62,7 +65,4 @@ server.listen(PORT, () => {
   console.log(`Server is running on PORT: ${PORT}`);
 });
 
-
-
-// Export server for Vervel
 export default server;
