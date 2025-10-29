@@ -17,14 +17,13 @@ const allowedOrigins = [
 
 // CORS middleware
 const corsOptions = {
-  origin: (origin, callback) => {
-    // allow requests with no origin like Postman
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+ origin: (origin, callback) => {
+  if (!origin || allowedOrigins.includes(origin)) {
+    callback(null, true);
+  } else {
+    callback(null, false); // don’t throw error
+  }
+},
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
