@@ -29,7 +29,8 @@ export const io = new Server(server, {
 export const userSocketMap = {}; // { userId: socketId }
 
 io.on("connection", (socket) => {
-  const userId = socket.handshake.query.userId;
+  //const userId = socket.handshake.query.userId;
+  const userId = socket.handshake.auth.userId;
   console.log("User Connected", userId);
 
   if (userId) userSocketMap[userId] = socket.id;
