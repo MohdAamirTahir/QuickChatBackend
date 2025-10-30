@@ -19,9 +19,9 @@ const allowedOrigins = [
 // ✅ CORS setup (Render-safe)
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // Allow requests with no origin (e.g. Postman)
-      const cleanedOrigin = origin.replace(/\/$/, ""); // Remove trailing slash if any
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // Allow requests with no origin (Postman/server)
+      const cleanedOrigin = origin.replace(/\/$/, "");
       const isAllowed = allowedOrigins.some(
         (o) => o.replace(/\/$/, "") === cleanedOrigin
       );
@@ -57,7 +57,8 @@ app.use("/api/messages", messageRouter);
 export const userSocketMap = {}; // { userId: socketId }
 
 io.on("connection", (socket) => {
-  const userId = socket.handshake.query.userId;
+  // ⚠️ FIX: Get userId from query OR auth payload
+  const userId = socket.handshake.query.userId || socket.handshake.auth?.userId;
   console.log("✅ User Connected:", userId);
 
   if (userId) userSocketMap[userId] = socket.id;
