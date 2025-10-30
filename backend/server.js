@@ -16,42 +16,31 @@ const allowedOrigins = [
   "https://quickchatfrontend.onrender.com"
 ];
 
-// ✅ CORS setup (Render-safe) including OPTIONS preflight
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // Allow server-side or Postman requests
-      const cleanedOrigin = origin.replace(/\/$/, ""); // Remove trailing slash
-      const isAllowed = allowedOrigins.some(o => o.replace(/\/$/, "") === cleanedOrigin);
-      if (isAllowed) callback(null, true);
-      else {
-        console.log("❌ Blocked CORS request from:", origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
+// ✅ Middleware for JSON
+app.use(express.json({ limit: "4mb" }));
 
-// ✅ Handle OPTIONS preflight requests
-app.options("*", cors({
-  origin: allowedOrigins,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+// ✅ CORS middleware (safe for Render + preflight)
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true); // server-side requests
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    console.log("❌ Blocked CORS request from:", origin);
+    callback(new Error("Not allowed by CORS"));
+  },
+  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
+  credentials: true,
 }));
 
-// ✅ Middleware
-app.use(express.json({ limit: "4mb" }));
+// ✅ Handle OPTIONS preflight globally
+app.options("*", cors());
 
 // ✅ Routes
 app.use("/api/status", (req, res) => res.send("Server is live ✅"));
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
 
-// ✅ Socket.IO setup with same origins
+// ✅ Socket.IO setup
 export const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -60,10 +49,10 @@ export const io = new Server(server, {
   },
 });
 
-// ✅ Store online users
-export const userSocketMap = {}; // { userId: socketId }
+// ✅ Online users store
+export const userSocketMap = {};
 
-// ✅ Socket.IO connections
+// ✅ Socket.IO connection
 io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
   console.log("✅ User Connected:", userId);
@@ -78,14 +67,14 @@ io.on("connection", (socket) => {
   });
 });
 
-// ✅ Connect DB
+// ✅ Connect to MongoDB
 await connectDB();
 
-// ✅ Start Server
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
 
-// ✅ Export for Vercel/Render
+// ✅ Export for Render / Vercel
 export default server;
