@@ -16,25 +16,40 @@ const allowedOrigins = [
   "https://quickchatfrontend.onrender.com"
 ];
 
-// ✅ CORS setup (Render-safe)
+// ✅ CORS setup (Render-safe) including OPTIONS preflight
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // Allow requests with no origin (Postman/server)
-      const cleanedOrigin = origin.replace(/\/$/, "");
-      const isAllowed = allowedOrigins.some(
-        (o) => o.replace(/\/$/, "") === cleanedOrigin
-      );
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // Allow server-side or Postman requests
+      const cleanedOrigin = origin.replace(/\/$/, ""); // Remove trailing slash
+      const isAllowed = allowedOrigins.some(o => o.replace(/\/$/, "") === cleanedOrigin);
       if (isAllowed) callback(null, true);
       else {
         console.log("❌ Blocked CORS request from:", origin);
         callback(new Error("Not allowed by CORS"));
       }
     },
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
+
+// ✅ Handle OPTIONS preflight requests
+app.options("*", cors({
+  origin: allowedOrigins,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// ✅ Middleware
+app.use(express.json({ limit: "4mb" }));
+
+// ✅ Routes
+app.use("/api/status", (req, res) => res.send("Server is live ✅"));
+app.use("/api/auth", userRouter);
+app.use("/api/messages", messageRouter);
 
 // ✅ Socket.IO setup with same origins
 export const io = new Server(server, {
@@ -45,20 +60,12 @@ export const io = new Server(server, {
   },
 });
 
-// ✅ Middleware
-app.use(express.json({ limit: "4mb" }));
-
-// ✅ Routes
-app.use("/api/status", (req, res) => res.send("Server is live ✅"));
-app.use("/api/auth", userRouter);
-app.use("/api/messages", messageRouter);
-
-// ✅ Socket.IO connections
+// ✅ Store online users
 export const userSocketMap = {}; // { userId: socketId }
 
+// ✅ Socket.IO connections
 io.on("connection", (socket) => {
-  // ⚠️ FIX: Get userId from query OR auth payload
-  const userId = socket.handshake.query.userId || socket.handshake.auth?.userId;
+  const userId = socket.handshake.query.userId;
   console.log("✅ User Connected:", userId);
 
   if (userId) userSocketMap[userId] = socket.id;
@@ -80,5 +87,5 @@ server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
 
-// ✅ Export (for Vercel/Render)
+// ✅ Export for Vercel/Render
 export default server;
