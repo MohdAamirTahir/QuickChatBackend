@@ -7,61 +7,68 @@ import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
 
-// Create Express app
 const app = express();
 const server = http.createServer(app);
 
-// CORS Middleware - allow your frontend only
-// app.use(cors({
-//   origin: "https://quickchatfrontend.onrender.com", // your deployed frontend
-//   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-//   allowedHeaders: ["Content-Type", "Authorization"],
-//   credentials: true, // required for cookies or auth headers
-// }));
-app.use(cors());
-app.use(function (req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*"); // allow all origins (for testing)
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS, HEAD"
-  );
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
+// ✅ Allow your frontend origin explicitly
+const allowedOrigins = [
+  "https://quickchatfrontend.onrender.com",
+  "http://localhost:5173", // for local testing (vite default)
+];
+
+// Configure CORS
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
+// Optional fallback headers (for safety)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "https://quickchatfrontend.onrender.com");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
   next();
 });
 
-// Middleware
+// JSON middleware
 app.use(express.json({ limit: "4mb" }));
 
-// Base Routes
+// Routes
 app.use("/api/status", (req, res) => res.send("Server is live"));
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
 
-// Initialize Socket.io with proper CORS
+// ✅ Socket.io CORS setup
 export const io = new Server(server, {
   cors: {
-    origin: "https://quickchatfrontend.onrender.com",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
 });
 
-// Store online users
-export const userSocketMap = {}; // { userId: socketId }
-
+// Socket.io connections
+export const userSocketMap = {};
 io.on("connection", (socket) => {
-  const userId = socket.handshake.auth.userId; // correct way for Socket.io v4+
-  console.log("User Connected", userId);
+  const userId = socket.handshake.auth.userId;
+  console.log("User Connected:", userId);
 
   if (userId) userSocketMap[userId] = socket.id;
 
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   socket.on("disconnect", () => {
-    console.log("User Disconnected", userId);
+    console.log("User Disconnected:", userId);
     delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
@@ -72,6 +79,6 @@ await connectDB();
 
 // Start server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log("Server running on PORT: " + PORT));
+server.listen(PORT, () => console.log("✅ Server running on PORT:", PORT));
 
-export default server; // for Render / testing
+export default server;
