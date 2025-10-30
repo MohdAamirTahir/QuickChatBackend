@@ -51,9 +51,9 @@ app.use("/api/messages", messageRouter)
 await connectDB();
 
 
-    const PORT = process.env.PORT;
-    server.listen(PORT, ()=> console.log("Server is running on PORT: " + PORT));
-}
+const PORT = process.env.PORT;
+server.listen(PORT, ()=> console.log("Server is running on PORT: " + PORT));
+
 
 // Export server for Vervel
 export default server;
