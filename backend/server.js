@@ -22,7 +22,10 @@ app.use("/api/messages", messageRouter);
 
 // Initialize Socket.io
 export const io = new Server(server, {
-  cors: { origin: "*" } // allow all origins, can restrict later
+  cors: {
+    origin: "https://your-frontend.onrender.com",
+    credentials: true
+  }
 });
 
 // Store online users
