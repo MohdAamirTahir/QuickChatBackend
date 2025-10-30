@@ -12,12 +12,25 @@ const app = express();
 const server = http.createServer(app);
 
 // CORS Middleware - allow your frontend only
-app.use(cors({
-  origin: "https://quickchatfrontend.onrender.com", // your deployed frontend
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true, // required for cookies or auth headers
-}));
+// app.use(cors({
+//   origin: "https://quickchatfrontend.onrender.com", // your deployed frontend
+//   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+//   allowedHeaders: ["Content-Type", "Authorization"],
+//   credentials: true, // required for cookies or auth headers
+// }));
+app.use(cors());
+app.use(function (req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*"); // allow all origins (for testing)
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS, HEAD"
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  next();
+});
 
 // Middleware
 app.use(express.json({ limit: "4mb" }));
