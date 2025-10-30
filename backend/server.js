@@ -7,26 +7,36 @@ import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
 
-// Create Express app and HTTP server
 const app = express();
 const server = http.createServer(app);
 
-// ✅ Allowed Origins (Frontend URLs)
+// ✅ Allowed Frontend URLs
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://quickchatfrontend.onrender.com" // your deployed frontend
+  "https://quickchatfrontend.onrender.com"
 ];
 
-// ✅ Apply CORS middleware for Express API routes
+// ✅ CORS setup (Render-safe)
 app.use(
   cors({
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // Allow requests with no origin (e.g. Postman)
+      const cleanedOrigin = origin.replace(/\/$/, ""); // Remove trailing slash if any
+      const isAllowed = allowedOrigins.some(
+        (o) => o.replace(/\/$/, "") === cleanedOrigin
+      );
+      if (isAllowed) callback(null, true);
+      else {
+        console.log("❌ Blocked CORS request from:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
 
-// ✅ Initialize Socket.IO server (simplified CORS)
+// ✅ Socket.IO setup with same origins
 export const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -35,42 +45,39 @@ export const io = new Server(server, {
   },
 });
 
-// ✅ Store online users
+// ✅ Middleware
+app.use(express.json({ limit: "4mb" }));
+
+// ✅ Routes
+app.use("/api/status", (req, res) => res.send("Server is live ✅"));
+app.use("/api/auth", userRouter);
+app.use("/api/messages", messageRouter);
+
+// ✅ Socket.IO connections
 export const userSocketMap = {}; // { userId: socketId }
 
-// ✅ Socket.IO connection handler
 io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
-  console.log("User Connected:", userId);
+  console.log("✅ User Connected:", userId);
 
   if (userId) userSocketMap[userId] = socket.id;
-
-  // Emit list of online users to all clients
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   socket.on("disconnect", () => {
-    console.log("User Disconnected:", userId);
+    console.log("❌ User Disconnected:", userId);
     delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
 });
 
-// ✅ Middleware setup
-app.use(express.json({ limit: "4mb" }));
-
-// ✅ Routes setup
-app.use("/api/status", (req, res) => res.send("Server is live"));
-app.use("/api/auth", userRouter);
-app.use("/api/messages", messageRouter);
-
-// ✅ Connect to MongoDB
+// ✅ Connect DB
 await connectDB();
 
+// ✅ Start Server
 const PORT = process.env.PORT || 5000;
-
 server.listen(PORT, () => {
-  console.log(`✅ Server is running on PORT: ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
 
-// ✅ Export server (for Vercel)
+// ✅ Export (for Vercel/Render)
 export default server;
